@@ -3,10 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SheebuTech Pro — Ultimate Photo Tools</title>
-    <meta name="description" content="Professional Photo Resizer & Editor by SheebuTech. Resize, Crop, and optimize images for Sarkari Exams securely offline.">
+    <title>SheebuTech Pro — Ultimate Student Tools</title>
+    <meta name="description" content="Photo Resizer, Image to PDF, and PDF Merger by SheebuTech.">
     <meta name="theme-color" content="#0f172a">
     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
     <style>
         /* --- 1. MODERN VARIABLES & THEME --- */
         :root {
@@ -59,12 +62,22 @@
 
         .tagline { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; }
 
-        /* --- 3. NAVIGATION TABS (Neumorphic) --- */
+        /* --- 3. NAVIGATION TABS (Scrollable) --- */
+        .tabs-wrapper {
+            overflow-x: auto;
+            padding: 15px 0;
+            /* Hide scrollbar */
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        .tabs-wrapper::-webkit-scrollbar { display: none; }
+
         .tabs-container {
             display: flex;
-            justify-content: center;
-            padding: 15px;
+            justify-content: start;
+            padding: 0 15px;
             gap: 10px;
+            min-width: max-content;
         }
 
         .tab-btn {
@@ -77,6 +90,7 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
+            white-space: nowrap;
         }
 
         .tab-btn.active {
@@ -86,7 +100,7 @@
             box-shadow: 0 0 15px var(--primary-glow);
         }
 
-        /* --- 4. MAIN CARD DESIGN (Glassmorphism) --- */
+        /* --- 4. MAIN CARD DESIGN --- */
         .container { max-width: 600px; margin: 0 auto; padding: 0 15px; }
 
         .tool-section {
@@ -115,6 +129,7 @@
             cursor: pointer;
             transition: all 0.2s;
             background: rgba(255,255,255,0.02);
+            position: relative;
         }
         .upload-zone:hover, .upload-zone:active {
             border-color: var(--primary);
@@ -122,8 +137,9 @@
         }
         .upload-icon { font-size: 2.5rem; margin-bottom: 10px; display: block; }
         .upload-text { font-weight: 600; color: var(--primary); }
+        .file-count { font-size: 0.8rem; color: var(--success); margin-top: 5px; display: none;}
 
-        /* --- 6. CONTROLS & INPUTS --- */
+        /* --- 6. CONTROLS --- */
         .control-group { margin-bottom: 20px; }
         .control-label {
             display: flex; justify-content: space-between;
@@ -139,21 +155,6 @@
             color: white;
             font-size: 1rem;
         }
-        input:focus, select:focus {
-            outline: none; border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
-        }
-
-        /* Sliders */
-        input[type="range"] {
-            width: 100%; height: 6px; background: #334155;
-            border-radius: 5px; -webkit-appearance: none;
-        }
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none; width: 20px; height: 20px;
-            border-radius: 50%; background: var(--primary);
-            cursor: pointer; box-shadow: 0 0 10px var(--primary-glow);
-        }
 
         /* --- 7. BUTTONS --- */
         .btn {
@@ -161,6 +162,7 @@
             font-size: 1rem; font-weight: 700; cursor: pointer;
             transition: transform 0.1s; display: flex;
             align-items: center; justify-content: center; gap: 8px;
+            margin-top: 10px;
         }
         .btn:active { transform: scale(0.97); }
         
@@ -169,14 +171,22 @@
             color: white;
             box-shadow: 0 4px 15px var(--primary-glow);
         }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.5);
+        }
         
         .btn-download {
             background: linear-gradient(135deg, var(--success), #16a34a);
             color: white; margin-top: 15px;
             text-decoration: none;
+            display: none; /* Hidden by default */
+            text-align: center;
         }
 
-        /* --- 8. PREVIEW & CROP --- */
+        /* --- 8. PREVIEW BOXES --- */
         .preview-box {
             margin-top: 20px; padding: 15px;
             background: rgba(0,0,0,0.3); border-radius: 12px;
@@ -184,10 +194,18 @@
         }
         .preview-img { max-width: 100%; border-radius: 8px; }
         
-        #crop-area { margin-top: 15px; display: none; }
-        canvas { max-width: 100%; border: 1px solid var(--border); touch-action: none; }
+        /* List for selected files */
+        .file-list {
+            text-align: left;
+            margin-top: 15px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .file-item { padding: 5px 0; border-bottom: 1px solid var(--border); }
 
-        /* --- 9. TOAST NOTIFICATION --- */
+        /* --- 9. TOAST & LOADER --- */
         .toast {
             position: fixed; bottom: 20px; left: 50%;
             transform: translateX(-50%) translateY(100px);
@@ -195,14 +213,28 @@
             color: white; padding: 12px 24px; border-radius: 50px;
             border: 1px solid var(--border);
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            z-index: 1000; font-size: 0.9rem; display: flex; gap: 8px;
+            transition: transform 0.3s;
+            z-index: 1000; font-size: 0.9rem; white-space: nowrap;
         }
         .toast.show { transform: translateX(-50%) translateY(0); }
 
-        /* Animations */
+        .loader-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 2000;
+            display: none; flex-direction: column;
+            justify-content: center; align-items: center;
+            backdrop-filter: blur(5px);
+        }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 4px solid var(--border);
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        
+
         footer { text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-top: 40px; }
         footer a { color: var(--primary); text-decoration: none; }
     </style>
@@ -211,13 +243,16 @@
 
     <header>
         <div class="brand-logo">Sheebu Tech</div>
-        <div class="tagline">Smart Tools for Smart Students</div>
+        <div class="tagline">Tools for Students | Made on Mobile</div>
     </header>
 
-    <div class="tabs-container">
-        <button class="tab-btn active" onclick="switchTab('photo')">Photo</button>
-        <button class="tab-btn" onclick="switchTab('sign')">Signature</button>
-        <button class="tab-btn" onclick="switchTab('doc')">Document</button>
+    <div class="tabs-wrapper">
+        <div class="tabs-container">
+            <button class="tab-btn active" onclick="switchTab('photo', this)">Photo Resize</button>
+            <button class="tab-btn" onclick="switchTab('img2pdf', this)">Img to PDF</button>
+            <button class="tab-btn" onclick="switchTab('merge', this)">Merge PDF</button>
+            <button class="tab-btn" onclick="switchTab('sign', this)">Signature</button>
+        </div>
     </div>
 
     <main class="container">
@@ -227,57 +262,87 @@
                 <div class="upload-zone" onclick="document.getElementById('p-input').click()">
                     <span class="upload-icon">📷</span>
                     <div class="upload-text">Upload Photo</div>
-                    <div style="font-size:0.8rem; color:var(--text-muted); margin-top:5px;">Supports JPG, PNG</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);">Supports JPG, PNG</div>
                     <input type="file" id="p-input" hidden accept="image/*">
                 </div>
 
                 <div id="p-controls" style="display:none; margin-top: 20px;">
-                    
                     <div class="control-group">
                         <label class="control-label">Exam Preset</label>
                         <select id="p-preset" onchange="applyPreset()">
                             <option value="">Custom Size</option>
                             <option value="ssc">SSC / Railway (3.5 x 4.5 cm)</option>
                             <option value="upsc">UPSC Civil Services</option>
-                            <option value="neet">NEET / JEE</option>
-                            <option value="pan">PAN Card</option>
+                            <option value="gate">GATE / JEE</option>
                         </select>
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <div class="control-group">
                             <label class="control-label">Width (px)</label>
-                            <input type="number" id="p-w" placeholder="W">
+                            <input type="number" id="p-w">
                         </div>
                         <div class="control-group">
                             <label class="control-label">Height (px)</label>
-                            <input type="number" id="p-h" placeholder="H">
+                            <input type="number" id="p-h">
                         </div>
                     </div>
 
-                    <div class="control-group" style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px;">
-                        <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
-                            <input type="checkbox" id="crop-toggle" style="width:20px; height:20px;">
-                            <span>Enable Manual Crop</span>
-                        </label>
-                        <div id="crop-area">
-                            <canvas id="crop-canvas" width="300" height="300"></canvas>
-                            <p style="font-size:0.8rem; color:var(--primary);">💡 Drag the box to adjust face.</p>
-                        </div>
-                    </div>
-
-                    <div class="control-group">
-                        <label class="control-label"><span>Quality (KB Reducer)</span> <span id="qual-val">80%</span></label>
-                        <input type="range" id="p-qual" min="10" max="100" value="80" oninput="document.getElementById('qual-val').innerText = this.value + '%'">
-                    </div>
-
-                    <button class="btn btn-primary" onclick="processPhoto()">⚡ Process & Resize</button>
+                    <button class="btn btn-primary" onclick="processPhoto()">⚡ Resize & Download</button>
 
                     <div id="p-result" class="preview-box">
                         <img id="p-img-out" class="preview-img">
-                        <div id="p-size-tag" style="margin:10px 0; font-weight:bold; color:var(--success);"></div>
-                        <a id="p-dl-btn" class="btn btn-download" download>Download Photo</a>
+                        <div id="p-size-tag" style="margin:10px 0; color:var(--success);"></div>
+                        <a id="p-dl-btn" class="btn btn-download" download>Download Image</a>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="img2pdf-panel" class="tool-section">
+            <div class="card">
+                <div class="upload-zone" onclick="document.getElementById('i2p-input').click()">
+                    <span class="upload-icon">🖼️ ➡️ 📄</span>
+                    <div class="upload-text">Select Images</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);">Select Multiple (JPG/PNG)</div>
+                    <input type="file" id="i2p-input" hidden accept="image/*" multiple>
+                    <div id="i2p-count" class="file-count">0 files selected</div>
+                </div>
+
+                <div id="i2p-controls" style="display:none; margin-top:20px;">
+                    <div class="file-list" id="i2p-list"></div>
+                    
+                    <div class="control-group">
+                         <label class="control-label">PDF Orientation</label>
+                         <select id="i2p-orient">
+                             <option value="p">Portrait (Vertical)</option>
+                             <option value="l">Landscape (Horizontal)</option>
+                         </select>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="convertImgToPdf()">⚙️ Convert to PDF</button>
+                    <a id="i2p-dl-btn" class="btn btn-download">Download PDF</a>
+                    <button class="btn btn-danger" onclick="resetTool('i2p')">Clear All</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="merge-panel" class="tool-section">
+            <div class="card">
+                <div class="upload-zone" onclick="document.getElementById('m-input').click()">
+                    <span class="upload-icon">📄 ➕ 📄</span>
+                    <div class="upload-text">Select PDFs</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);">Select Multiple PDF files</div>
+                    <input type="file" id="m-input" hidden accept="application/pdf" multiple>
+                    <div id="m-count" class="file-count">0 files selected</div>
+                </div>
+
+                <div id="m-controls" style="display:none; margin-top:20px;">
+                    <div class="file-list" id="m-list"></div>
+                    
+                    <button class="btn btn-primary" onclick="mergePdfs()">🔗 Merge PDFs</button>
+                    <a id="m-dl-btn" class="btn btn-download">Download Merged PDF</a>
+                    <button class="btn btn-danger" onclick="resetTool('m')">Clear All</button>
                 </div>
             </div>
         </section>
@@ -292,45 +357,13 @@
 
                 <div id="s-controls" style="display:none; margin-top:20px;">
                     <div class="control-group">
-                        <label class="control-label">Black Background Removal</label>
-                        <input type="range" id="s-threshold" min="100" max="250" value="160">
-                        <p style="font-size:0.8rem; color:var(--text-muted);">Adjust to make background pure white.</p>
+                        <label class="control-label">Clean Level</label>
+                        <input type="range" id="s-threshold" min="100" max="200" value="150" style="width:100%">
                     </div>
-
-                    <button class="btn btn-primary" onclick="processSignature()">⚡ Clean Signature</button>
-
+                    <button class="btn btn-primary" onclick="processSignature()">✨ Clean Background</button>
                     <div id="s-result" class="preview-box">
-                        <img id="s-img-out" class="preview-img" style="border: 1px solid #ccc; background: white;">
+                        <img id="s-img-out" class="preview-img" style="background:white; padding:5px;">
                         <a id="s-dl-btn" class="btn btn-download" download>Download Signature</a>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="doc-panel" class="tool-section">
-            <div class="card">
-                <div class="upload-zone" onclick="document.getElementById('d-input').click()">
-                    <span class="upload-icon">📄</span>
-                    <div class="upload-text">Upload Document</div>
-                    <input type="file" id="d-input" hidden accept="image/*">
-                </div>
-
-                <div id="d-controls" style="display:none; margin-top:20px;">
-                    <div class="control-group">
-                        <label class="control-label">Filter Mode</label>
-                        <select id="d-filter">
-                            <option value="original">Original</option>
-                            <option value="bw">Black & White (Sharp)</option>
-                            <option value="magic">Magic Color (Bright)</option>
-                        </select>
-                    </div>
-                    
-                    <button class="btn btn-primary" onclick="processDoc()">⚡ Process Document</button>
-
-                    <div id="d-result" class="preview-box">
-                        <img id="d-img-out" class="preview-img">
-                        <div id="d-size-tag" style="margin:10px 0; color:var(--success);"></div>
-                        <a id="d-dl-btn" class="btn btn-download" download>Download Document</a>
                     </div>
                 </div>
             </div>
@@ -339,49 +372,58 @@
     </main>
 
     <footer>
-        <p>Developed with ❤️ by <a href="https://youtube.com/@SheebuTech" target="_blank">Sheebu Tech</a></p>
-        <p>100% Secure & Offline Processing</p>
+        <p>Developed by <strong>Sheebu Tech</strong></p>
+        <p>100% Client-Side Secure</p>
     </footer>
 
-    <div id="toast" class="toast">✅ Action Successful</div>
+    <div id="toast" class="toast">Action Successful</div>
+    <div id="loader" class="loader-overlay">
+        <div class="spinner"></div>
+        <p style="margin-top:15px; font-weight:bold;">Processing...</p>
+    </div>
 
     <script>
-        // --- GLOBAL VARIABLES ---
-        let currentFile = null;
-        let imgObj = new Image();
-        
-        // --- UI FUNCTIONS ---
-        function switchTab(tab) {
-            document.querySelectorAll('.tool-section').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-            
-            document.getElementById(tab + '-panel').classList.add('active');
-            // Find button by text or index logic (simple fix)
-            event.target.classList.add('active');
-            
-            // Reset state slightly
-            currentFile = null;
-        }
-
-        function showToast(msg, type='success') {
+        // --- UTILS ---
+        function showLoader(show) { document.getElementById('loader').style.display = show ? 'flex' : 'none'; }
+        function showToast(msg) {
             const t = document.getElementById('toast');
-            t.textContent = (type === 'error' ? '❌ ' : '✅ ') + msg;
+            t.innerText = "✅ " + msg;
             t.classList.add('show');
             setTimeout(() => t.classList.remove('show'), 3000);
         }
 
-        function formatBytes(bytes) {
-            return (bytes / 1024).toFixed(1) + ' KB';
+        function switchTab(tabId, btn) {
+            document.querySelectorAll('.tool-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId + '-panel').classList.add('active');
+            btn.classList.add('active');
         }
 
-        // --- PRESETS ---
-        const presets = {
-            ssc: {w: 132, h: 170}, // Approx 3.5x4.5cm @ 96dpi
-            upsc: {w: 350, h: 350},
-            neet: {w: 132, h: 170},
-            pan: {w: 240, h: 336}
-        };
+        function resetTool(prefix) {
+            document.getElementById(prefix + '-input').value = "";
+            document.getElementById(prefix + '-controls').style.display = 'none';
+            document.getElementById(prefix + '-dl-btn').style.display = 'none';
+            if(document.getElementById(prefix + '-count')) document.getElementById(prefix + '-count').style.display = 'none';
+        }
 
+        // --- 1. PHOTO RESIZER LOGIC ---
+        let pImg = new Image();
+        document.getElementById('p-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                pImg.src = ev.target.result;
+                pImg.onload = function() {
+                    document.getElementById('p-controls').style.display = 'block';
+                    document.getElementById('p-w').value = pImg.width;
+                    document.getElementById('p-h').value = pImg.height;
+                }
+            }
+            reader.readAsDataURL(file);
+        });
+
+        const presets = { ssc: {w: 132, h: 170}, upsc: {w: 350, h: 350}, gate: {w: 480, h: 640} };
         function applyPreset() {
             const val = document.getElementById('p-preset').value;
             if(presets[val]) {
@@ -390,190 +432,174 @@
             }
         }
 
-        // --- PHOTO LOGIC ---
-        const pInput = document.getElementById('p-input');
-        pInput.addEventListener('change', (e) => handleFile(e.target.files[0], 'p'));
+        function processPhoto() {
+            const canvas = document.createElement('canvas');
+            canvas.width = document.getElementById('p-w').value;
+            canvas.height = document.getElementById('p-h').value;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(pImg, 0, 0, canvas.width, canvas.height);
+            
+            const url = canvas.toDataURL('image/jpeg', 0.85);
+            const outImg = document.getElementById('p-img-out');
+            outImg.src = url;
+            document.getElementById('p-result').style.display = 'block';
+            
+            const btn = document.getElementById('p-dl-btn');
+            btn.href = url;
+            btn.download = "SheebuTech_Photo.jpg";
+            btn.style.display = "flex";
+            
+            showToast("Photo Resized!");
+        }
 
-        function handleFile(file, type) {
-            if(!file) return;
-            if(!file.type.startsWith('image/')) {
-                showToast('Please upload an image file', 'error');
+        // --- 2. IMAGE TO PDF LOGIC (using jsPDF) ---
+        let i2pFiles = [];
+        document.getElementById('i2p-input').addEventListener('change', function(e) {
+            i2pFiles = Array.from(e.target.files);
+            if(i2pFiles.length > 0) {
+                document.getElementById('i2p-controls').style.display = 'block';
+                document.getElementById('i2p-count').innerText = i2pFiles.length + " files selected";
+                document.getElementById('i2p-count').style.display = 'block';
+                
+                const list = document.getElementById('i2p-list');
+                list.innerHTML = "";
+                i2pFiles.forEach(f => {
+                    list.innerHTML += `<div class="file-item">📷 ${f.name}</div>`;
+                });
+            }
+        });
+
+        async function convertImgToPdf() {
+            showLoader(true);
+            const { jsPDF } = window.jspdf;
+            const orientation = document.getElementById('i2p-orient').value;
+            const doc = new jsPDF({ orientation: orientation });
+
+            for (let i = 0; i < i2pFiles.length; i++) {
+                const dataUrl = await fileToDataURL(i2pFiles[i]);
+                const imgProps = doc.getImageProperties(dataUrl);
+                const pdfWidth = doc.internal.pageSize.getWidth();
+                const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                
+                if (i > 0) doc.addPage();
+                doc.addImage(dataUrl, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+            }
+
+            const pdfBlob = doc.output('blob');
+            const url = URL.createObjectURL(pdfBlob);
+            const btn = document.getElementById('i2p-dl-btn');
+            btn.href = url;
+            btn.download = "SheebuTech_Images.pdf";
+            btn.style.display = "flex";
+            
+            showLoader(false);
+            showToast("PDF Created!");
+        }
+
+        function fileToDataURL(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // --- 3. PDF MERGE LOGIC (using PDF-Lib) ---
+        let mergeFiles = [];
+        document.getElementById('m-input').addEventListener('change', function(e) {
+            mergeFiles = Array.from(e.target.files);
+            if(mergeFiles.length > 0) {
+                document.getElementById('m-controls').style.display = 'block';
+                document.getElementById('m-count').innerText = mergeFiles.length + " PDFs selected";
+                document.getElementById('m-count').style.display = 'block';
+                
+                const list = document.getElementById('m-list');
+                list.innerHTML = "";
+                mergeFiles.forEach(f => {
+                    list.innerHTML += `<div class="file-item">📄 ${f.name}</div>`;
+                });
+            }
+        });
+
+        async function mergePdfs() {
+            if(mergeFiles.length < 2) {
+                alert("Please select at least 2 PDF files");
                 return;
             }
-            currentFile = file;
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                imgObj = new Image();
-                imgObj.onload = () => {
-                    document.getElementById(type + '-controls').style.display = 'block';
-                    if(type === 'p') {
-                        document.getElementById('p-w').value = imgObj.width;
-                        document.getElementById('p-h').value = imgObj.height;
-                        initCrop();
-                    }
-                };
-                imgObj.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
+            showLoader(true);
+            try {
+                const { PDFDocument } = PDFLib;
+                const mergedPdf = await PDFDocument.create();
 
-        // --- CROPPER (Simplified for Mobile) ---
-        let cropCanvas = document.getElementById('crop-canvas');
-        let ctx = cropCanvas.getContext('2d');
-        let cropRect = {x: 20, y: 20, w: 100, h: 100};
-        let isDragging = false;
+                for (const file of mergeFiles) {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdf = await PDFDocument.load(arrayBuffer);
+                    const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+                    copiedPages.forEach((page) => mergedPdf.addPage(page));
+                }
 
-        function initCrop() {
-            // Resize canvas to fit screen aspect
-            const aspect = imgObj.width / imgObj.height;
-            cropCanvas.height = 300;
-            cropCanvas.width = 300 * aspect;
-            if(cropCanvas.width > window.innerWidth - 60) cropCanvas.width = window.innerWidth - 60;
-            
-            drawCrop();
-        }
-
-        function drawCrop() {
-            ctx.clearRect(0,0, cropCanvas.width, cropCanvas.height);
-            ctx.drawImage(imgObj, 0, 0, cropCanvas.width, cropCanvas.height);
-            
-            // Dark overlay
-            ctx.fillStyle = 'rgba(0,0,0,0.5)';
-            ctx.fillRect(0,0, cropCanvas.width, cropCanvas.height);
-            
-            // Clear selection
-            ctx.clearRect(cropRect.x, cropRect.y, cropRect.w, cropRect.h);
-            ctx.drawImage(imgObj, 
-                cropRect.x * (imgObj.width/cropCanvas.width), 
-                cropRect.y * (imgObj.height/cropCanvas.height),
-                cropRect.w * (imgObj.width/cropCanvas.width),
-                cropRect.h * (imgObj.height/cropCanvas.height),
-                cropRect.x, cropRect.y, cropRect.w, cropRect.h
-            );
-            
-            ctx.strokeStyle = '#38bdf8';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(cropRect.x, cropRect.y, cropRect.w, cropRect.h);
-        }
-
-        // Basic Touch Dragging for Crop Box
-        cropCanvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            const rect = cropCanvas.getBoundingClientRect();
-            const touch = e.touches[0];
-            const x = touch.clientX - rect.left;
-            const y = touch.clientY - rect.top;
-            
-            // Simple center drag logic
-            cropRect.x = x - (cropRect.w/2);
-            cropRect.y = y - (cropRect.h/2);
-            
-            // Boundary checks
-            if(cropRect.x < 0) cropRect.x = 0;
-            if(cropRect.y < 0) cropRect.y = 0;
-            if(cropRect.x + cropRect.w > cropCanvas.width) cropRect.x = cropCanvas.width - cropRect.w;
-            if(cropRect.y + cropRect.h > cropCanvas.height) cropRect.y = cropCanvas.height - cropRect.h;
-            
-            drawCrop();
-        });
-
-        document.getElementById('crop-toggle').addEventListener('change', (e) => {
-            document.getElementById('crop-area').style.display = e.target.checked ? 'block' : 'none';
-            if(e.target.checked) initCrop();
-        });
-
-        // --- PROCESSING ---
-        function processPhoto() {
-            if(!imgObj.src) return;
-            const canvas = document.createElement('canvas');
-            const w = parseInt(document.getElementById('p-w').value) || imgObj.width;
-            const h = parseInt(document.getElementById('p-h').value) || imgObj.height;
-            canvas.width = w;
-            canvas.height = h;
-            const ctxFinal = canvas.getContext('2d');
-
-            if(document.getElementById('crop-toggle').checked) {
-                // Crop Logic
-                const scaleX = imgObj.width / cropCanvas.width;
-                const scaleY = imgObj.height / cropCanvas.height;
-                ctxFinal.drawImage(imgObj, 
-                    cropRect.x * scaleX, cropRect.y * scaleY, 
-                    cropRect.w * scaleX, cropRect.h * scaleY, 
-                    0, 0, w, h
-                );
-            } else {
-                ctxFinal.drawImage(imgObj, 0, 0, w, h);
+                const pdfBytes = await mergedPdf.save();
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+                
+                const btn = document.getElementById('m-dl-btn');
+                btn.href = url;
+                btn.download = "SheebuTech_Merged.pdf";
+                btn.style.display = "flex";
+                showToast("PDFs Merged!");
+            } catch (err) {
+                alert("Error merging: " + err.message);
             }
-
-            const quality = document.getElementById('p-qual').value / 100;
-            const dataUrl = canvas.toDataURL('image/jpeg', quality);
-            
-            displayResult('p', dataUrl);
+            showLoader(false);
         }
 
-        // --- SIGNATURE & DOC LOGIC (Simplified) ---
-        document.getElementById('s-input').addEventListener('change', (e) => handleFile(e.target.files[0], 's'));
-        document.getElementById('d-input').addEventListener('change', (e) => handleFile(e.target.files[0], 'd'));
+        // --- 4. SIGNATURE CLEANER LOGIC ---
+        let sImg = new Image();
+        document.getElementById('s-input').addEventListener('change', function(e) {
+            const f = e.target.files[0];
+            if(!f) return;
+            const r = new FileReader();
+            r.onload = function(ev) {
+                sImg.src = ev.target.result;
+                sImg.onload = () => document.getElementById('s-controls').style.display = 'block';
+            }
+            r.readAsDataURL(f);
+        });
 
         function processSignature() {
             const canvas = document.createElement('canvas');
-            canvas.width = imgObj.width;
-            canvas.height = imgObj.height;
+            canvas.width = sImg.width; 
+            canvas.height = sImg.height;
             const ctx = canvas.getContext('2d');
-            ctx.drawImage(imgObj, 0, 0);
+            ctx.drawImage(sImg, 0, 0);
             
-            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const data = imgData.data;
-            const threshold = parseInt(document.getElementById('s-threshold').value);
+            const imageData = ctx.getImageData(0,0, canvas.width, canvas.height);
+            const data = imageData.data;
+            const thresh = parseInt(document.getElementById('s-threshold').value);
 
-            for (let i = 0; i < data.length; i += 4) {
-                const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                if (avg > threshold) {
-                    data[i] = 255; data[i + 1] = 255; data[i + 2] = 255; // White
+            for(let i=0; i<data.length; i+=4) {
+                const avg = (data[i] + data[i+1] + data[i+2]) / 3;
+                if(avg > thresh) {
+                    // Make white transparent
+                    data[i+3] = 0; 
                 } else {
-                    // Make ink darker/blacker
-                    data[i] = 0; data[i + 1] = 0; data[i + 2] = 0;
+                    // Make ink black
+                    data[i] = 0; data[i+1] = 0; data[i+2] = 0;
                 }
             }
-            ctx.putImageData(imgData, 0, 0);
-            displayResult('s', canvas.toDataURL('image/jpeg'));
-        }
-
-        function processDoc() {
-            const canvas = document.createElement('canvas');
-            canvas.width = imgObj.width;
-            canvas.height = imgObj.height;
-            const ctx = canvas.getContext('2d');
-            const filter = document.getElementById('d-filter').value;
+            ctx.putImageData(imageData, 0, 0);
             
-            if(filter === 'bw') ctx.filter = 'grayscale(100%) contrast(150%)';
-            if(filter === 'magic') ctx.filter = 'saturate(150%) contrast(120%)';
+            const url = canvas.toDataURL('image/png');
+            const imgOut = document.getElementById('s-img-out');
+            imgOut.src = url;
+            document.getElementById('s-result').style.display = 'block';
             
-            ctx.drawImage(imgObj, 0, 0);
-            displayResult('d', canvas.toDataURL('image/jpeg', 0.7));
-        }
-
-        function displayResult(type, url) {
-            const img = document.getElementById(type + '-img-out');
-            img.src = url;
-            document.getElementById(type + '-result').style.display = 'block';
-            
-            // Calculate size roughly
-            const head = 'data:image/jpeg;base64,';
-            const size = Math.round((url.length - head.length) * 3/4);
-            
-            if(document.getElementById(type + '-size-tag')) {
-                document.getElementById(type + '-size-tag').innerText = "Size: " + formatBytes(size);
-            }
-            
-            const btn = document.getElementById(type + '-dl-btn');
+            const btn = document.getElementById('s-dl-btn');
             btn.href = url;
-            btn.download = `SheebuTech_${type}_${Date.now()}.jpg`;
-            
-            showToast('Processed Successfully!');
-            img.scrollIntoView({behavior: "smooth"});
+            btn.style.display = 'flex';
+            showToast("Signature Cleaned!");
         }
     </script>
 </body>
-                            </html>
-                            
+    </html>
+    
