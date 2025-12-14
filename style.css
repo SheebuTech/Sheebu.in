@@ -1,0 +1,24 @@
+/* ... existing header styles ... */
+
+.header {
+    /* Keep existing styles */
+    background: rgba(30, 41, 59, 0.95);
+    padding: 10px 20px; /* Adjusted padding slightly */
+    /* ... rest of existing styles ... */
+}
+
+/* ADD THIS NEW CLASS */
+.app-logo {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%; /* Makes it circular */
+    object-fit: cover;
+    border: 2px solid var(--primary); /* Adds a nice purple border */
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.3);
+}
+
+.brand-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
